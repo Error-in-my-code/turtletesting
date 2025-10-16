@@ -1,12 +1,12 @@
 --[[
-  DIAMOND TUNNEL MINER (tunnel.lua) 11
+  DIAMOND TUNNEL MINER (tunnel.lua) 22
   
   This script digs a straight 1x2 tunnel forward, checking for diamonds 
   and automatically returning to its starting point when fuel is low.
   
   SETUP INSTRUCTIONS:
   1. Place the Mining Turtle at the desired diamond level (Y=11 is common).
-  2. Place Coal or Charcoal in slot 16 (the last slot).
+  2. Place Coal or Charcoal in slot 16 (the last slot). Make sure you have at least 2 coal/charcoal.
   3. Run the script: tunnel
 --]]
 
@@ -49,9 +49,10 @@ end
 
 -- Checks fuel and refuels if necessary and possible
 local function checkAndRefuel()
-    -- Check fuel level
-    if turtle.getFuelLevel() < RETURN_FUEL_BUFFER then
-        print("Fuel critically low. Attempting to refuel.")
+    -- This function now acts to refuel IF the turtle is approaching the return buffer
+    -- (This logic is primarily used during the mining loop)
+    if turtle.getFuelLevel() < RETURN_FUEL_BUFFER + MOVE_COST_PER_PASS then
+        print("Fuel approaching buffer. Attempting to refuel.")
         
         -- Select the fuel slot
         turtle.select(FUEL_SLOT)
@@ -110,7 +111,7 @@ local function runMiner()
     -- Ensure homeSafe flag is cleared
     homeSafe = false 
 
-    -- Get the distance that requires a return
+    -- Calculate max distance again after ensuring fuel level is adequate (handled in START PROGRAM)
     local distanceForReturn = (turtle.getFuelLevel() - RETURN_FUEL_BUFFER) / MOVE_COST_PER_PASS
     print("Maximum tunnel length before return: " .. math.floor(distanceForReturn) .. " blocks.")
     
@@ -133,17 +134,9 @@ local function runMiner()
         end
         
         -- 2. Refuel Check (Allows refueling if coal is available)
-        if not checkAndRefuel() then
-            -- If refuel fails, check if we need to return
-            if movesLeft > fuelToReturn then
-                -- Continue mining if we can still make it home
-                print("Cannot refuel, but continuing until return point is met.")
-            else
-                -- If we can't refuel AND we can't make it home, we are stuck.
-                print("FATAL: Cannot refuel and cannot return home. Stopping.")
-                return
-            end
-        end
+        checkAndRefuel()
+        -- Note: If checkAndRefuel fails, the earlier fuel check 'if movesLeft <= fuelToReturn' 
+        -- will catch the low fuel and force a return before the turtle gets stuck.
 
         -- 3. Execute Movement and Digging
         if not moveAndDig() then
@@ -158,12 +151,26 @@ end
 -- START PROGRAM
 -- ====================
 
--- Check if we have fuel (at least one coal for a clean start)
+-- Check if we have enough fuel items for the initial refuel
 turtle.select(FUEL_SLOT)
-if turtle.getItemCount(FUEL_SLOT) < 1 and turtle.getFuelLevel() < RETURN_FUEL_BUFFER then
-    print("ERROR: Please put coal/charcoal in slot " .. FUEL_SLOT .. " to fuel the turtle.")
+if turtle.getItemCount(FUEL_SLOT) < 2 and turtle.getFuelLevel() < RETURN_FUEL_BUFFER then
+    print("FATAL ERROR: Need at least two coal/charcoal items in slot " .. FUEL_SLOT .. " for safe startup.")
+    turtle.select(1)
     return
 end
+
+-- Force initial refuel with 2 items to ensure we get a positive max length.
+if turtle.getFuelLevel() < RETURN_FUEL_BUFFER + MOVE_COST_PER_PASS then
+    print("Initial fuel insufficient. Forcing refuel with 2 units...")
+    
+    -- Attempt to consume TWO fuel items
+    if not turtle.refuel(2) then
+        print("ERROR: Refuel failed, check slot " .. FUEL_SLOT .. " for fuel source.")
+        turtle.select(1)
+        return
+    end
+end
+
 turtle.select(1) -- Set selection back to the first slot (assuming a pickaxe is here)
 
 print("Starting Diamond Tunnel Miner...")
