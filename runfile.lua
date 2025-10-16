@@ -1,5 +1,5 @@
 --[[
-  DIAMOND TUNNEL MINER (tunnel.lua)
+  DIAMOND TUNNEL MINER (tunnel.lua) 11
   
   This script digs a straight 1x2 tunnel forward, checking for diamonds 
   and automatically returning to its starting point when fuel is low.
